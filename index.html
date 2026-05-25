@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>城市合成</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: #eee;
+}
+h1 { margin-bottom: 8px; font-size: 1.5rem; }
+#score { margin-bottom: 16px; font-size: 1.1rem; color: #aaa; }
+#grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  width: min(90vw, 400px);
+  height: min(90vw, 400px);
+}
+.cell {
+  background: #16213e;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: min(12vw, 3.2rem);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s, box-shadow 0.1s;
+  aspect-ratio: 1;
+}
+.cell:hover { background: #1a2a4a; }
+.cell.selected {
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(255, 200, 50, 0.8);
+  background: #2a3a5a;
+}
+.cell.merge-flash {
+  animation: flash 0.3s ease-out;
+}
+@keyframes flash {
+  0% { background: #ffd700; transform: scale(1.2); }
+  100% { background: #16213e; transform: scale(1); }
+}
+.cell.shake {
+  animation: shake 0.3s ease-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+#game-over {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+#game-over.show { display: flex; }
+#game-over h2 { font-size: 2rem; }
+#game-over button {
+  padding: 12px 32px;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: #ffd700;
+  color: #1a1a2e;
+  cursor: pointer;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+<h1>城市合成</h1>
+<div id="score">得分: 0</div>
+<div id="grid"></div>
+<div id="game-over">
+  <h2>游戏结束!</h2>
+  <p id="final-score"></p>
+  <button onclick="init()">再来一局</button>
+</div>
+
+<script>
+const LEVELS = ['⛺', '🛖', '🏠', '🏢', '🏬', '🏙️', '🚀'];
+const SIZE = 5;
+let grid = [];
+let selected = null;
+let score = 0;
+
+function init() {
+  grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+  selected = null;
+  score = 0;
+  document.getElementById('game-over').classList.remove('show');
+  // Start with 8 random tents so merges are immediately possible
+  for (let i = 0; i < 8; i++) spawnRandom();
+  render();
+}
+
+function spawnRandom() {
+  const empty = [];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (grid[r][c] === 0) empty.push([r, c]);
+  if (empty.length === 0) return false;
+  const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+  grid[r][c] = 1;
+  return true;
+}
+
+function render() {
+  const el = document.getElementById('grid');
+  el.innerHTML = '';
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (selected && selected[0] === r && selected[1] === c) {
+        cell.classList.add('selected');
+      }
+      cell.textContent = grid[r][c] > 0 ? LEVELS[grid[r][c] - 1] || '🌟' : '';
+      cell.addEventListener('click', () => onCellClick(r, c));
+      el.appendChild(cell);
+    }
+  }
+  document.getElementById('score').textContent = `得分: ${score}`;
+  if (isGameOver()) {
+    setTimeout(() => {
+      document.getElementById('final-score').textContent = `最终得分: ${score}`;
+      document.getElementById('game-over').classList.add('show');
+    }, 400);
+  }
+}
+
+function isAdjacent(r1, c1, r2, c2) {
+  return Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1 && !(r1 === r2 && c1 === c2);
+}
+
+function onCellClick(r, c) {
+  if (grid[r][c] === 0) {
+    selected = null;
+    render();
+    return;
+  }
+
+  if (!selected) {
+    selected = [r, c];
+    render();
+    return;
+  }
+
+  const [sr, sc] = selected;
+
+  // Clicking the same cell deselects
+  if (sr === r && sc === c) {
+    selected = null;
+    render();
+    return;
+  }
+
+  // Check merge conditions
+  if (isAdjacent(sr, sc, r, c) && grid[sr][sc] === grid[r][c]) {
+    const newLevel = grid[sr][sc] + 1;
+    grid[sr][sc] = 0;
+    grid[r][c] = newLevel;
+    score += newLevel * 10;
+    selected = null;
+
+    // Spawn new tent
+    spawnRandom();
+
+    render();
+    flashCell(r, c);
+    checkGameOver();
+  } else {
+    // Not adjacent or not same level — shake feedback then select new cell
+    selected = [r, c];
+    render();
+    const cells = document.querySelectorAll('.cell');
+    const idx = r * SIZE + c;
+    if (cells[idx] && !isAdjacent(sr, sc, r, c)) {
+      // no feedback needed, just reselect
+    } else if (cells[idx]) {
+      // adjacent but different level — shake
+      cells[idx].classList.add('shake');
+      setTimeout(() => cells[idx].classList.remove('shake'), 300);
+    }
+  }
+}
+
+function isGameOver() {
+  const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++) {
+      if (grid[r][c] === 0) continue;
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && grid[nr][nc] === grid[r][c]) return false;
+      }
+    }
+  return true;
+}
+
+function checkGameOver() {
+  if (isGameOver()) {
+    setTimeout(() => {
+      document.getElementById('final-score').textContent = `最终得分: ${score}`;
+      document.getElementById('game-over').classList.add('show');
+    }, 400);
+  }
+}
+
+function flashCell(r, c) {
+  const cells = document.querySelectorAll('.cell');
+  const idx = r * SIZE + c;
+  if (cells[idx]) {
+    cells[idx].classList.add('merge-flash');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
