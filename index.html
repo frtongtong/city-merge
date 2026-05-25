@@ -479,6 +479,7 @@ function useMove(r, c) {
 }
 
 function render() {
+  updateToolButtons();
   const el = document.getElementById('grid');
   el.innerHTML = '';
   const cellFontSize = SIZE <= 4 ? 'min(14vw, 3.5rem)' : SIZE <= 5 ? 'min(12vw, 3.2rem)' : 'min(8vw, 2rem)';
