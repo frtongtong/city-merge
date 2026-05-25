@@ -15,15 +15,87 @@ body {
   justify-content: center;
   min-height: 100vh;
   color: #eee;
+  overflow: hidden;
 }
-h1 { margin-bottom: 8px; font-size: 1.5rem; }
-#score { margin-bottom: 16px; font-size: 1.1rem; color: #aaa; }
+h1 { margin-bottom: 4px; font-size: 1.5rem; }
+#difficulty-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+#difficulty-row button {
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  border: 2px solid #444;
+  border-radius: 6px;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#difficulty-row button:hover { border-color: #888; color: #eee; }
+#difficulty-row button.active {
+  border-color: #ffd700;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+#score-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+  color: #aaa;
+}
+#score-row span { display: inline-block; }
+#tools-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.75rem;
+  min-width: 60px;
+}
+.tool-btn .tool-icon { font-size: 1.4rem; }
+.tool-btn .tool-count {
+  font-size: 0.7rem;
+  background: #ffd700;
+  color: #1a1a2e;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+.tool-btn:hover { border-color: #888; color: #eee; }
+.tool-btn.active {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+.tool-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 #grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   width: min(90vw, 400px);
   height: min(90vw, 400px);
+  position: relative;
 }
 .cell {
   background: #16213e;
@@ -31,11 +103,12 @@ h1 { margin-bottom: 8px; font-size: 1.5rem; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: min(12vw, 3.2rem);
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
   aspect-ratio: 1;
+  position: relative;
+  touch-action: none;
 }
 .cell:hover { background: #1a2a4a; }
 .cell.selected {
@@ -43,11 +116,21 @@ h1 { margin-bottom: 8px; font-size: 1.5rem; }
   box-shadow: 0 0 12px rgba(255, 200, 50, 0.8);
   background: #2a3a5a;
 }
+.cell.drag-over {
+  box-shadow: 0 0 16px rgba(100, 255, 100, 0.7);
+  background: #1a3a2a;
+  transform: scale(1.05);
+}
+.cell.tool-target {
+  box-shadow: 0 0 16px rgba(255, 107, 107, 0.7);
+  cursor: crosshair;
+}
 .cell.merge-flash {
-  animation: flash 0.3s ease-out;
+  animation: flash 0.4s ease-out;
 }
 @keyframes flash {
-  0% { background: #ffd700; transform: scale(1.2); }
+  0% { background: #ffd700; transform: scale(1.3); }
+  50% { background: #ffaa00; transform: scale(1.15); }
   100% { background: #16213e; transform: scale(1); }
 }
 .cell.shake {
@@ -58,19 +141,67 @@ h1 { margin-bottom: 8px; font-size: 1.5rem; }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }
+.cell.spawn {
+  animation: spawn 0.3s ease-out;
+}
+@keyframes spawn {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(-50%, -50%) scale(1.2);
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+}
 #game-over {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.85);
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
+  z-index: 100;
 }
 #game-over.show { display: flex; }
 #game-over h2 { font-size: 2rem; }
+#game-over p { font-size: 1.2rem; color: #aaa; }
 #game-over button {
+  padding: 12px 32px;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: #ffd700;
+  color: #1a1a2e;
+  cursor: pointer;
+  font-weight: bold;
+}
+#game-over button:hover { background: #ffaa00; }
+#tutorial {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 200;
+  padding: 32px;
+  text-align: center;
+}
+#tutorial.show { display: flex; }
+#tutorial h2 { font-size: 1.8rem; color: #ffd700; }
+#tutorial p { font-size: 1.1rem; line-height: 1.8; max-width: 320px; }
+#tutorial .levels-preview {
+  font-size: 2rem;
+  letter-spacing: 8px;
+}
+#tutorial button {
   padding: 12px 32px;
   font-size: 1.2rem;
   border: none;
@@ -84,29 +215,140 @@ h1 { margin-bottom: 8px; font-size: 1.5rem; }
 </head>
 <body>
 <h1>城市合成</h1>
-<div id="score">得分: 0</div>
+<div id="difficulty-row">
+  <button onclick="setDifficulty('easy')" id="btn-easy">简单 4×4</button>
+  <button onclick="setDifficulty('medium')" id="btn-medium">中等 5×5</button>
+  <button onclick="setDifficulty('hard')" id="btn-hard">困难 8×8</button>
+</div>
+<div id="score-row">
+  <span id="score">得分: 0</span>
+  <span id="best">最高: 0</span>
+</div>
+<div id="tools-row">
+  <button class="tool-btn" onclick="activateTool('shuffle')" id="btn-shuffle">
+    <span class="tool-icon">🔄</span>
+    <span>刷新</span>
+    <span class="tool-count" id="shuffle-count">2</span>
+  </button>
+  <button class="tool-btn" onclick="activateTool('move')" id="btn-move">
+    <span class="tool-icon">👆</span>
+    <span>移动</span>
+    <span class="tool-count" id="move-count">3</span>
+  </button>
+  <button class="tool-btn" onclick="useUndo()" id="btn-undo">
+    <span class="tool-icon">↩️</span>
+    <span>撤回</span>
+    <span class="tool-count" id="undo-count">3</span>
+  </button>
+</div>
 <div id="grid"></div>
+
 <div id="game-over">
   <h2>游戏结束!</h2>
   <p id="final-score"></p>
+  <p id="new-best" style="color: #ffd700; display: none;">新纪录!</p>
   <button onclick="init()">再来一局</button>
+</div>
+
+<div id="tutorial">
+  <h2>城市合成</h2>
+  <p>拖动建筑到相邻（含对角线）的同级建筑上完成合并，升级你的城市！</p>
+  <div class="levels-preview">⛺ → 🛖 → 🏠 → 🏢 → 🏬 → 🏙️ → 🚀</div>
+  <p>
+    道具助你一臂之力：<br>
+    🔄 刷新：随机打乱所有建筑位置<br>
+    👆 移动：选一个建筑，再点任意空格移过去<br>
+    ↩️ 撤回上一步操作
+  </p>
+  <p>格子填满且无法合并时游戏结束<br>冲刺最高分吧！</p>
+  <button onclick="closeTutorial()">开始游戏</button>
 </div>
 
 <script>
 const LEVELS = ['⛺', '🛖', '🏠', '🏢', '🏬', '🏙️', '🚀'];
-const SIZE = 5;
+
+const DIFFICULTIES = {
+  easy:   { size: 4, startCount: 5, label: '简单' },
+  medium: { size: 5, startCount: 8, label: '中等' },
+  hard:   { size: 8, startCount: 14, label: '困难' }
+};
+
+let difficulty = localStorage.getItem('cityMergeDifficulty') || 'medium';
+let SIZE = DIFFICULTIES[difficulty].size;
 let grid = [];
 let selected = null;
 let score = 0;
+let bestScore = 0;
+let dragState = null;
+let ghost = null;
+let dragOverCell = null;
+
+let activeTool = null;
+let swapFirst = null;
+let tools = { shuffle: 2, move: 3, undo: 3 };
+let history = [];
+
+function getBestKey() {
+  return `cityMergeBest_${difficulty}`;
+}
+
+function loadBest() {
+  bestScore = parseInt(localStorage.getItem(getBestKey()) || '0');
+}
+
+function setDifficulty(d) {
+  difficulty = d;
+  SIZE = DIFFICULTIES[d].size;
+  localStorage.setItem('cityMergeDifficulty', d);
+  loadBest();
+  updateDifficultyButtons();
+  applyGridStyle();
+  init();
+}
+
+function updateDifficultyButtons() {
+  document.getElementById('btn-easy').classList.toggle('active', difficulty === 'easy');
+  document.getElementById('btn-medium').classList.toggle('active', difficulty === 'medium');
+  document.getElementById('btn-hard').classList.toggle('active', difficulty === 'hard');
+}
+
+function applyGridStyle() {
+  const gridEl = document.getElementById('grid');
+  gridEl.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+}
+
+function saveState() {
+  history.push({
+    grid: grid.map(row => [...row]),
+    score: score
+  });
+  if (history.length > 20) history.shift();
+}
 
 function init() {
   grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
   selected = null;
   score = 0;
+  activeTool = null;
+  swapFirst = null;
+  tools = { shuffle: 2, move: 3, undo: 3 };
+  history = [];
   document.getElementById('game-over').classList.remove('show');
-  // Start with 8 random tents so merges are immediately possible
-  for (let i = 0; i < 8; i++) spawnRandom();
+  document.getElementById('new-best').style.display = 'none';
+  const startCount = DIFFICULTIES[difficulty].startCount;
+  for (let i = 0; i < startCount; i++) spawnRandom();
   render();
+  updateScoreDisplay();
+  updateToolButtons();
+
+  if (!localStorage.getItem('cityMergeTutorialSeen')) {
+    document.getElementById('tutorial').classList.add('show');
+  }
+}
+
+function closeTutorial() {
+  document.getElementById('tutorial').classList.remove('show');
+  localStorage.setItem('cityMergeTutorialSeen', '1');
 }
 
 function spawnRandom() {
@@ -117,31 +359,256 @@ function spawnRandom() {
   if (empty.length === 0) return false;
   const [r, c] = empty[Math.floor(Math.random() * empty.length)];
   grid[r][c] = 1;
-  return true;
+  return [r, c];
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score').textContent = `得分: ${score}`;
+  document.getElementById('best').textContent = `最高: ${bestScore}`;
+}
+
+function updateToolButtons() {
+  document.getElementById('shuffle-count').textContent = tools.shuffle;
+  document.getElementById('move-count').textContent = tools.move;
+  document.getElementById('undo-count').textContent = tools.undo;
+
+  document.getElementById('btn-shuffle').disabled = tools.shuffle <= 0;
+  document.getElementById('btn-move').disabled = tools.move <= 0;
+  document.getElementById('btn-undo').disabled = tools.undo <= 0 || history.length === 0;
+
+  document.getElementById('btn-shuffle').classList.toggle('active', activeTool === 'shuffle');
+  document.getElementById('btn-move').classList.toggle('active', activeTool === 'move');
+}
+
+function activateTool(tool) {
+  if (tool === activeTool) {
+    activeTool = null;
+    swapFirst = null;
+  } else if (tools[tool] > 0) {
+    activeTool = tool;
+    swapFirst = null;
+    if (tool === 'shuffle') {
+      useShuffle();
+      return;
+    }
+  }
+  selected = null;
+  render();
+  updateToolButtons();
+}
+
+function useUndo() {
+  if (tools.undo <= 0 || history.length === 0) return;
+  tools.undo--;
+  const state = history.pop();
+  grid = state.grid;
+  score = state.score;
+  selected = null;
+  activeTool = null;
+  swapFirst = null;
+  render();
+  updateToolButtons();
+}
+
+function useShuffle() {
+  saveState();
+  tools.shuffle--;
+  playToolSound();
+  vibrate(50);
+  const values = [];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (grid[r][c] > 0) values.push(grid[r][c]);
+
+  for (let i = values.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+
+  let idx = 0;
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++) {
+      if (grid[r][c] > 0) {
+        grid[r][c] = values[idx++];
+      }
+    }
+
+  activeTool = null;
+  selected = null;
+  render();
+  updateToolButtons();
+}
+
+function useMove(r, c) {
+  if (!swapFirst) {
+    if (grid[r][c] === 0) return;
+    swapFirst = [r, c];
+    selected = [r, c];
+    render();
+    updateToolButtons();
+    return;
+  }
+
+  const [fr, fc] = swapFirst;
+  if (fr === r && fc === c) {
+    swapFirst = null;
+    selected = null;
+    render();
+    return;
+  }
+
+  if (grid[r][c] !== 0) {
+    swapFirst = [r, c];
+    selected = [r, c];
+    render();
+    return;
+  }
+
+  saveState();
+  tools.move--;
+  playToolSound();
+  vibrate(30);
+  grid[r][c] = grid[fr][fc];
+  grid[fr][fc] = 0;
+
+  activeTool = null;
+  swapFirst = null;
+  selected = null;
+  render();
+  updateToolButtons();
 }
 
 function render() {
   const el = document.getElementById('grid');
   el.innerHTML = '';
+  const cellFontSize = SIZE <= 4 ? 'min(14vw, 3.5rem)' : SIZE <= 5 ? 'min(12vw, 3.2rem)' : 'min(8vw, 2rem)';
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
+      cell.style.fontSize = cellFontSize;
+      cell.dataset.row = r;
+      cell.dataset.col = c;
       if (selected && selected[0] === r && selected[1] === c) {
         cell.classList.add('selected');
       }
+      if (activeTool === 'move' && swapFirst && grid[r][c] === 0) {
+        cell.classList.add('tool-target');
+      } else if (activeTool === 'move' && !swapFirst && grid[r][c] > 0) {
+        cell.classList.add('tool-target');
+      }
       cell.textContent = grid[r][c] > 0 ? LEVELS[grid[r][c] - 1] || '🌟' : '';
       cell.addEventListener('click', () => onCellClick(r, c));
+      cell.addEventListener('mousedown', (e) => onDragStart(e, r, c));
+      cell.addEventListener('touchstart', (e) => onTouchStart(e, r, c), { passive: false });
       el.appendChild(cell);
     }
   }
-  document.getElementById('score').textContent = `得分: ${score}`;
-  if (isGameOver()) {
-    setTimeout(() => {
-      document.getElementById('final-score').textContent = `最终得分: ${score}`;
-      document.getElementById('game-over').classList.add('show');
-    }, 400);
+  updateScoreDisplay();
+}
+
+function getCellAt(x, y) {
+  const cells = document.querySelectorAll('.cell');
+  for (const cell of cells) {
+    const rect = cell.getBoundingClientRect();
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      return { row: parseInt(cell.dataset.row), col: parseInt(cell.dataset.col), el: cell };
+    }
   }
+  return null;
+}
+
+function onDragStart(e, r, c) {
+  if (activeTool) return;
+  if (grid[r][c] === 0) return;
+  e.preventDefault();
+  dragState = { row: r, col: c };
+  createGhost(e.clientX, e.clientY, r, c);
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+function onTouchStart(e, r, c) {
+  if (activeTool) return;
+  if (grid[r][c] === 0) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  dragState = { row: r, col: c };
+  createGhost(touch.clientX, touch.clientY, r, c);
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', onTouchEnd);
+}
+
+function createGhost(x, y, r, c) {
+  const cellFontSize = SIZE <= 4 ? 'min(14vw, 3.5rem)' : SIZE <= 5 ? 'min(12vw, 3.2rem)' : 'min(8vw, 2rem)';
+  ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.style.fontSize = cellFontSize;
+  ghost.textContent = LEVELS[grid[r][c] - 1] || '🌟';
+  ghost.style.left = x + 'px';
+  ghost.style.top = y + 'px';
+  document.body.appendChild(ghost);
+}
+
+function onDragMove(e) {
+  if (!ghost) return;
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top = e.clientY + 'px';
+  updateDragOver(e.clientX, e.clientY);
+}
+
+function onTouchMove(e) {
+  if (!ghost) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  ghost.style.left = touch.clientX + 'px';
+  ghost.style.top = touch.clientY + 'px';
+  updateDragOver(touch.clientX, touch.clientY);
+}
+
+function updateDragOver(x, y) {
+  const target = getCellAt(x, y);
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach(c => c.classList.remove('drag-over'));
+  dragOverCell = null;
+
+  if (target && dragState) {
+    const { row, col } = target;
+    const { row: sr, col: sc } = dragState;
+    if (isAdjacent(sr, sc, row, col) && grid[row][col] === grid[sr][sc] && !(row === sr && col === sc)) {
+      target.el.classList.add('drag-over');
+      dragOverCell = { row, col };
+    }
+  }
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  finishDrag();
+}
+
+function onTouchEnd(e) {
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend', onTouchEnd);
+  finishDrag();
+}
+
+function finishDrag() {
+  if (ghost) {
+    ghost.remove();
+    ghost = null;
+  }
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('drag-over'));
+
+  if (dragState && dragOverCell) {
+    const { row: sr, col: sc } = dragState;
+    const { row: tr, col: tc } = dragOverCell;
+    doMerge(sr, sc, tr, tc);
+  }
+
+  dragState = null;
+  dragOverCell = null;
 }
 
 function isAdjacent(r1, c1, r2, c2) {
@@ -149,6 +616,13 @@ function isAdjacent(r1, c1, r2, c2) {
 }
 
 function onCellClick(r, c) {
+  if (dragState) return;
+
+  if (activeTool === 'move') {
+    useMove(r, c);
+    return;
+  }
+
   if (grid[r][c] === 0) {
     selected = null;
     render();
@@ -163,40 +637,71 @@ function onCellClick(r, c) {
 
   const [sr, sc] = selected;
 
-  // Clicking the same cell deselects
   if (sr === r && sc === c) {
     selected = null;
     render();
     return;
   }
 
-  // Check merge conditions
   if (isAdjacent(sr, sc, r, c) && grid[sr][sc] === grid[r][c]) {
-    const newLevel = grid[sr][sc] + 1;
-    grid[sr][sc] = 0;
-    grid[r][c] = newLevel;
-    score += newLevel * 10;
     selected = null;
-
-    // Spawn new tent
-    spawnRandom();
-
-    render();
-    flashCell(r, c);
-    checkGameOver();
+    doMerge(sr, sc, r, c);
   } else {
-    // Not adjacent or not same level — shake feedback then select new cell
     selected = [r, c];
     render();
-    const cells = document.querySelectorAll('.cell');
-    const idx = r * SIZE + c;
-    if (cells[idx] && !isAdjacent(sr, sc, r, c)) {
-      // no feedback needed, just reselect
-    } else if (cells[idx]) {
-      // adjacent but different level — shake
-      cells[idx].classList.add('shake');
-      setTimeout(() => cells[idx].classList.remove('shake'), 300);
+    if (isAdjacent(sr, sc, r, c)) {
+      const cells = document.querySelectorAll('.cell');
+      const idx = r * SIZE + c;
+      if (cells[idx]) {
+        cells[idx].classList.add('shake');
+        setTimeout(() => cells[idx].classList.remove('shake'), 300);
+      }
     }
+  }
+}
+
+function doMerge(sr, sc, tr, tc) {
+  saveState();
+  const newLevel = grid[sr][sc] + 1;
+  grid[sr][sc] = 0;
+  grid[tr][tc] = newLevel;
+  score += newLevel * 10;
+
+  playMergeSound(newLevel);
+  vibrate(30 + newLevel * 10);
+
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem(getBestKey(), bestScore.toString());
+  }
+
+  const spawned = spawnRandom();
+  render();
+
+  const cells = document.querySelectorAll('.cell');
+  const targetIdx = tr * SIZE + tc;
+  if (cells[targetIdx]) {
+    cells[targetIdx].classList.add('merge-flash');
+  }
+
+  if (spawned) {
+    const spawnIdx = spawned[0] * SIZE + spawned[1];
+    if (cells[spawnIdx]) {
+      cells[spawnIdx].classList.add('spawn');
+    }
+    setTimeout(playSpawnSound, 150);
+  }
+
+  if (isGameOver()) {
+    setTimeout(() => {
+      playGameOverSound();
+      vibrate(200);
+      document.getElementById('final-score').textContent = `最终得分: ${score}`;
+      if (score >= bestScore) {
+        document.getElementById('new-best').style.display = 'block';
+      }
+      document.getElementById('game-over').classList.add('show');
+    }, 500);
   }
 }
 
@@ -213,23 +718,90 @@ function isGameOver() {
   return true;
 }
 
-function checkGameOver() {
-  if (isGameOver()) {
-    setTimeout(() => {
-      document.getElementById('final-score').textContent = `最终得分: ${score}`;
-      document.getElementById('game-over').classList.add('show');
-    }, 400);
-  }
+// Audio system
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
 }
 
-function flashCell(r, c) {
-  const cells = document.querySelectorAll('.cell');
-  const idx = r * SIZE + c;
-  if (cells[idx]) {
-    cells[idx].classList.add('merge-flash');
-  }
+function playMergeSound(level) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300 + level * 80, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400 + level * 100, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  } catch(e) {}
 }
 
+function playSpawnSound() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.08);
+  } catch(e) {}
+}
+
+function playGameOverSound() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+function playToolSound() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(500, ctx.currentTime);
+    osc.frequency.setValueAtTime(700, ctx.currentTime + 0.05);
+    osc.frequency.setValueAtTime(900, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {}
+}
+
+function vibrate(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+// Initialize
+loadBest();
+updateDifficultyButtons();
+applyGridStyle();
 init();
 </script>
 </body>
